@@ -35,8 +35,12 @@ int main(int argc, char **argv) {
     /* Walk the list and display each IP address */
     flags = NI_NUMERICHOST; /* Display address string instead of domain name */
     for (p = listp; p; p = p->ai_next) {
-
+        Getnameinfo(p->ai_addr, p->ai_addrlen, buf, MAXLINE, NULL, 0, flags);
+        printf("%s\n", buf);
     }
 
-    return 0;
+    /* Clean up */
+    Freeaddrinfo(listp);
+
+    exit(0);
 }
