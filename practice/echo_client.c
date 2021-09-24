@@ -23,8 +23,12 @@ int main(int argc, char **argv) {
     // stdin이 들어올 때까지 while문은 대기 상태
     // - stdin이 들어와야 fgets 함수가 실행되고, 그래야 fgets함수의 return값을 NULL과 비교할 수 있음 
     while (Fgets(buf, MAXLINE, stdin) != NULL) { 
-        printf("121212\n");
+        // 이미 다른 클라이언트가 서버와 연결된 상태에서
+        // 새로운 클라이언트로 연결하여 입력값을 보내면 send:~까지 실행된 뒤 기다리게 됨
+        printf("client send    : ");
         rio_writen(clientfd, buf, strlen(buf));
+        printf("%s", buf); // buf에는 \n까지 포함됨!!
+        printf("client receive : ");
         rio_readlineb(&rio, buf, MAXLINE);
         Fputs(buf, stdout);
     }
