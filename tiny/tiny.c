@@ -57,15 +57,18 @@ void doit(int fd) {
   printf("Request headers:\n");
   printf("%s", buf);
   sscanf(buf, "%s %s %s", method, uri, version);
-  // method가 GET이 아닌 경우 에러 처리
+  /* method가 GET이 아닌 경우 에러 처리 */
   if (strcasecmp(method, "GET")) { // case-insensitive sting comparisons
     clienterror(fd, method, "501", "Not implemented", "Tiny does not implement this method");
     return;
   }
-  // request header를 분석: 이건 rio의 fd를 비우기 위해 실행하는 걸까?
+  /* request header 읽기: 이건 rio의 fd를 비우기 위해 실행하는 걸까? */
   read_requesthdrs(&rio);
+  /* Parse URI from GET request */
+  is_static = parse_uri(uri, filename, cgiargs);
 
 }
+
 
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg) {
   printf("[clienterror] %s %s\n", cause, shortmsg);
@@ -88,6 +91,7 @@ void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longms
   rio_writen(fd, body, strlen(body));
 }
 
+
 void read_requesthdrs(rio_t *rp) {
   char buf[MAXLINE];
 
@@ -97,4 +101,34 @@ void read_requesthdrs(rio_t *rp) {
     printf("%s", buf);
   }
   return;
+}
+
+
+int parse_uri(char *uri, char *filename, char *cgiargs) {
+
+  char *ptr;
+  
+  if (!strstr(uri, "cgi-bin")) {  // substring 찾기: uri에서 "cgi-bin"이 처음 등장하는 위치의 주소값, 없으면 NULL
+    /* Static content */
+    strcpy(cgiargs, "");
+    strcpy(filename, ".");  // 현재 디렉토리 뒤에 uri를 붙임: ./blah/blah
+    strcat(filename, uri); 
+    if (uri[strlen(uri)-1] == '/') {
+      strcat(filename, "home.html");  // expand to some default home page
+    }
+    return 1;
+  } 
+  else {
+    /* Dynamic content */
+    ptr = index(uri, '?');
+    if (ptr) {
+      strcpy(cgiargs, ptr+1);
+      *ptr = '\0';
+    } else {
+      strcpy(cgiargs, "");
+    }
+    strcpy(filename, ".");  // 현재 디렉토리 뒤에 uri를 붙임: ./blah/blah
+    strcat(filename, uri);
+    return 0;
+  } 
 }
