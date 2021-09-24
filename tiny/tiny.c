@@ -11,9 +11,9 @@
 void doit(int fd);
 void read_requesthdrs(rio_t *rp);
 int parse_uri(char *uri, char *filename, char *cgiargs);
-void serve_static(int fd, char *filename, int filesize);
+void serve_static(int fd, char *filename, int filesize, char *method);
 void get_filetype(char *filename, char *filetype);
-void serve_dynamic(int fd, char *filename, char *cgiargs);
+void serve_dynamic(int fd, char *filename, char *cgiargs, char *method);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg,
                  char *longmsg);
 
@@ -57,7 +57,7 @@ void doit(int fd) {
   printf("%s", buf);
   sscanf(buf, "%s %s %s", method, uri, version);
   /* method가 GET이 아닌 경우 에러 처리 */
-  if (strcasecmp(method, "GET")) { // case-insensitive sting comparisons
+  if (strcasecmp(method, "GET") && strcasecmp(method, "HEAD")) { // case-insensitive sting comparisons
     clienterror(fd, method, "501", "Not implemented", "Tiny does not implement this method");
     return;
   }
@@ -79,14 +79,14 @@ void doit(int fd) {
       clienterror(fd, filename, "403", "Forbidden", "Tiny couldn't read the file");
       return;
     }
-    serve_static(fd, filename, sbuf.st_size);
+    serve_static(fd, filename, sbuf.st_size, method);
   } else {
     /* serve dynamic content */
     if (!(S_ISREG(sbuf.st_mode)) || !(S_IXUSR & sbuf.st_mode)) {
       clienterror(fd, filename, "403", "Forbidden", "Tiny couldn't run the CGI program");
       return;
     }
-    serve_dynamic(fd, filename, cgiargs);
+    serve_dynamic(fd, filename, cgiargs, method);
   }
 }
 
@@ -154,7 +154,7 @@ int parse_uri(char *uri, char *filename, char *cgiargs) {
 }
 
 
-void serve_static(int fd, char *filename, int filesize) {
+void serve_static(int fd, char *filename, int filesize, char *method) {
   int srcfd;
   char *srcp, filetype[MAXLINE], buf[MAXBUF];
 
@@ -168,6 +168,10 @@ void serve_static(int fd, char *filename, int filesize) {
   rio_writen(fd, buf, strlen(buf)); // 구성한 header를 일차로 client에 보냄
   printf("Response headers:\n");
   printf("%s", buf);
+
+  if (strcasecmp(method, "GET")) {
+    return;
+  }
 
   /* Send response bod to client */
   srcfd = Open(filename, O_RDONLY, 0);
@@ -200,7 +204,7 @@ void get_filetype(char *filename, char *filetype) {
 }
 
 
-void serve_dynamic(int fd, char *filename, char *cgiargs) {
+void serve_dynamic(int fd, char *filename, char *cgiargs, char *method) {
   char buf[MAXLINE], *emptylist[] = {NULL};
   /* Return first part of HTTP response */
   sprintf(buf, "HTTP/1.0 200 OK\r\n");
@@ -211,6 +215,7 @@ void serve_dynamic(int fd, char *filename, char *cgiargs) {
   if (Fork() == 0) {
     /* Real server would set all CGI vars here */
     setenv("QUERY_STRING", cgiargs, 1);
+    setenv("REQUEST_METHOD", method, 1);
     Dup2(fd, STDOUT_FILENO); // redirect stdout to client
     Execve(filename, emptylist, environ); // run CGI program
   }
