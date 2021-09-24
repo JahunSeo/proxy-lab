@@ -62,6 +62,8 @@ void doit(int fd) {
     clienterror(fd, method, "501", "Not implemented", "Tiny does not implement this method");
     return;
   }
+  // request header를 분석: 이건 rio의 fd를 비우기 위해 실행하는 걸까?
+  read_requesthdrs(&rio);
 
 }
 
@@ -84,4 +86,15 @@ void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longms
   sprintf(buf, "Content-length: %d\r\n\r\n", (int)strlen(body));
   rio_writen(fd, buf, strlen(buf));
   rio_writen(fd, body, strlen(body));
+}
+
+void read_requesthdrs(rio_t *rp) {
+  char buf[MAXLINE];
+
+  rio_readlineb(rp, buf, MAXLINE);
+  while(strcmp(buf, "\r\n")) {  // compare two strings char by char, if string are equal return 0
+    rio_readlineb(rp, buf, MAXLINE);
+    printf("%s", buf);
+  }
+  return;
 }
