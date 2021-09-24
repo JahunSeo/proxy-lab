@@ -3,14 +3,32 @@
     <title>test</title>
   </head>
   <body>
+    <h1>Hello, Jungle Wep Server!</h1>
+    <hr />
     <div>
+      <h3>Image</h3>
       <img align="middle" src="godzilla.gif" />
       <p>Dave O'Hallaron</p>
     </div>
+    <hr />
     <div>
+      <h3>Video</h3>
       <video style="width: 400px" controls>
         <source src="video.mp4" type="video/mp4" />
       </video>
+    </div>
+    <hr />
+    <div>
+      <h3>Form Adder</h3>
+      <form action="/cgi-bin/adder">
+        <label for="n1">number 1:</label>
+        <input type="text" id="n1" name="n1" />
+        <br />
+        <label for="n2">number 2:</label>
+        <input type="text" id="n2" name="n2" />
+        <br />
+        <input type="submit" value="add" />
+      </form>
     </div>
   </body>
 </html>
