@@ -50,7 +50,6 @@ void doit(int fd) {
   char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
   char filename[MAXLINE], cgiargs[MAXLINE];
   rio_t rio;
-
   /* Read request line and headers */
   rio_readinitb(&rio, fd);  // paremeter connfd를 rio structure에 연결
   rio_readlineb(&rio, buf, MAXLINE);  // connfd에 담겨 있는 client request의 첫 번째 라인을 buf에 저장
@@ -64,9 +63,27 @@ void doit(int fd) {
   }
   /* request header 읽기: 이건 rio의 fd를 비우기 위해 실행하는 걸까? */
   read_requesthdrs(&rio);
-  /* Parse URI from GET request */
+  /* Parse URI from GET request: 클라이언트로부터 요청 받은 filename과 cgiargs를 확인 */
   is_static = parse_uri(uri, filename, cgiargs);
   printf("[parse_uri] %d, %s %s", is_static, filename, cgiargs);
+  /* 요청 받은 파일이 존재하는지 확인 */
+  // stat은 파일의 상태 및 정보를 가져오는 함수, 성공 시 0, 실패 시 -1
+  if (stat(filename, &sbuf) < 0) {
+    clienterror(fd, filename, "404", "Not found", "Tiny couldn't find this file");
+    return;
+  }
+  /*  */
+  if (is_static) {
+    /* serve static content */
+    if (!(S_ISREG(sbuf.st_mode)) || !(S_IRUSR & sbuf.st_mode)) {
+      clienterror(fd, filename, "403", "Forbidden", "Tiny couldn't read the file");
+      return;
+    }
+    serve_static(fd, filename, sbuf.st_size);
+  } else {
+    /* serve dynamic content */
+
+  }
 
 }
 
@@ -131,4 +148,29 @@ int parse_uri(char *uri, char *filename, char *cgiargs) {
     strcat(filename, uri);
     return 0;
   } 
+}
+
+
+void serve_static(int fd, char *filename, int filesize) {
+  int srcfd;
+  char *srcp, filetype[MAXLINE], buf[MAXBUF];
+
+  /* Send response headers to client */
+  get_filetype(filename, filetype);
+}
+
+
+void get_filetype(char *filename, char *filetype) {
+  /* Derive file type from filename */
+  if (strstr(filename, ".html")) {
+    strcpy(filetype, "text/html");
+  } else if (strstr(filename, ".gif")) {
+    strcpy(filetype, "image/gif");
+  } else if (strstr(filename, ".png")) {
+    strcpy(filetype, "image/png");
+  } else if (strstr(filename, ".jpg")) {
+    strcpy(filetype, "image/jpeg");
+  } else {
+    strcpy(filetype, "text/plain");
+  }
 }
