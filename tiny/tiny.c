@@ -65,7 +65,7 @@ void doit(int fd) {
   read_requesthdrs(&rio);
   /* Parse URI from GET request: 클라이언트로부터 요청 받은 filename과 cgiargs를 확인 */
   is_static = parse_uri(uri, filename, cgiargs);
-  printf("[parse_uri] %d, %s %s", is_static, filename, cgiargs);
+  printf("[parse_uri] %d, %s %s\n", is_static, filename, cgiargs);
   /* 요청 받은 파일이 존재하는지 확인 */
   // stat은 파일의 상태 및 정보를 가져오는 함수, 성공 시 0, 실패 시 -1
   if (stat(filename, &sbuf) < 0) {
@@ -157,6 +157,22 @@ void serve_static(int fd, char *filename, int filesize) {
 
   /* Send response headers to client */
   get_filetype(filename, filetype);
+  sprintf(buf, "HTTP/1.0 200 OK\r\n");
+  sprintf(buf, "%sServer: Tiny Web Server\r\n", buf);
+  sprintf(buf, "%sConnection: close\r\n", buf);
+  sprintf(buf, "%sContent-length: %d\r\n", buf, filesize);
+  sprintf(buf, "%sContent-type:%s\r\n\r\n", buf, filetype);
+  rio_writen(fd, buf, strlen(buf)); // 구성한 header를 일차로 client에 보냄
+  printf("Response headers:\n");
+  printf("%s", buf);
+
+  /* Send response bod to client */
+  srcfd = Open(filename, O_RDONLY, 0);
+  srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0);
+  Close(srcfd);
+  rio_writen(fd, srcp, filesize);
+  munmap(srcp, filesize);
+
 }
 
 
