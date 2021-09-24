@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
   listenfd = Open_listenfd(argv[1]);
   while (1) {
     clientlen = sizeof(clientaddr);
-    printf("wait for client's requests... (%d)\n", clientlen);
+    printf("\nwait for client's requests... (%d)\n", clientlen);
     connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);  // repeatedly accepting a connection request // line:netp:tiny:accept
     Getnameinfo((SA *)&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE, 0);
     printf("Accepted connection from (%s, %s)\n", hostname, port);
@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
 
 
 void doit(int fd) {
-  printf("doit doit chu~~\n");
+  printf("[doit] doit doit chu~~ (fd: %d)\n", fd);
   int is_static;  // client의 요청이 static content인지 여부
   struct stat sbuf;  // status of file을 저장하는 structure
   char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
@@ -53,7 +53,7 @@ void doit(int fd) {
 
   /* Read request line and headers */
   rio_readinitb(&rio, fd);  // paremeter connfd를 rio structure에 연결
-  rio_readlineb(&rio, buf, MAXLINE);  // connfd에 담겨 있는 client의 요청을 buf에 저장
+  rio_readlineb(&rio, buf, MAXLINE);  // connfd에 담겨 있는 client request의 첫 번째 라인을 buf에 저장
   printf("Request headers:\n");
   printf("%s", buf);
   sscanf(buf, "%s %s %s", method, uri, version);
@@ -66,6 +66,7 @@ void doit(int fd) {
 }
 
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg) {
+  printf("[clienterror] %s %s\n", cause, shortmsg);
   char buf[MAXLINE], body[MAXBUF];
 
   /* Build the HTTP response body */
