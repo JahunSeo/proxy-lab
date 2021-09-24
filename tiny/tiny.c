@@ -72,7 +72,7 @@ void doit(int fd) {
     clienterror(fd, filename, "404", "Not found", "Tiny couldn't find this file");
     return;
   }
-  /*  */
+  /* 요청에 맞게 처리 */
   if (is_static) {
     /* serve static content */
     if (!(S_ISREG(sbuf.st_mode)) || !(S_IRUSR & sbuf.st_mode)) {
@@ -82,9 +82,12 @@ void doit(int fd) {
     serve_static(fd, filename, sbuf.st_size);
   } else {
     /* serve dynamic content */
-
+    if (!(S_ISREG(sbuf.st_mode)) || !(S_IXUSR & sbuf.st_mode)) {
+      clienterror(fd, filename, "403", "Forbidden", "Tiny couldn't run the CGF program");
+      return;
+    }
+    serve_dynamic(fd, filename, cgiargs);
   }
-
 }
 
 
@@ -189,4 +192,23 @@ void get_filetype(char *filename, char *filetype) {
   } else {
     strcpy(filetype, "text/plain");
   }
+}
+
+
+void serve_dynamic(int fd, char *filename, char *cgiargs) {
+  char buf[MAXLINE], *emptylist[] = {NULL};
+  /* Return first part of HTTP response */
+  sprintf(buf, "HTTP/1.0 200 OK\r\n");
+  rio_writen(fd, buf, strlen(buf));
+  sprintf(buf, "Server: Tiny Web Server\r\n");
+  rio_writen(fd, buf, strlen(buf));
+  /* Child process */
+  if (Fork() == 0) {
+    /* Real server would set all CGI vars here */
+    setenv("QUERY_STRING", cgiargs, 1);
+    Dup2(fd, STDOUT_FILENO); // redirect stdout to client
+    Execve(filename, emptylist, environ); // run CGI program
+  }
+  /* Parent waits for and reaps child */
+  Wait(NULL);
 }
