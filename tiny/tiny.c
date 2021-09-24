@@ -66,6 +66,7 @@ void doit(int fd) {
   read_requesthdrs(&rio);
   /* Parse URI from GET request */
   is_static = parse_uri(uri, filename, cgiargs);
+  printf("[parse_uri] %d, %s %s", is_static, filename, cgiargs);
 
 }
 
@@ -105,14 +106,13 @@ void read_requesthdrs(rio_t *rp) {
 
 
 int parse_uri(char *uri, char *filename, char *cgiargs) {
-
   char *ptr;
   
   if (!strstr(uri, "cgi-bin")) {  // substring 찾기: uri에서 "cgi-bin"이 처음 등장하는 위치의 주소값, 없으면 NULL
     /* Static content */
     strcpy(cgiargs, "");
     strcpy(filename, ".");  // 현재 디렉토리 뒤에 uri를 붙임: ./blah/blah
-    strcat(filename, uri); 
+    strcat(filename, uri);  // 참고로, uri에 cgi-bin이 없을 경우, 즉 dynamic이 아닌 경우, '?' 뒤의 내용도 모두 filename 들어 간다
     if (uri[strlen(uri)-1] == '/') {
       strcat(filename, "home.html");  // expand to some default home page
     }
