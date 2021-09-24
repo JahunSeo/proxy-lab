@@ -32,12 +32,23 @@ int main(int argc, char **argv) {
   listenfd = Open_listenfd(argv[1]);
   while (1) {
     clientlen = sizeof(clientaddr);
-    connfd = Accept(listenfd, (SA *)&clientaddr,
-                    &clientlen);  // line:netp:tiny:accept
-    Getnameinfo((SA *)&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE,
-                0);
+    printf("wait for client's requests... (%lu)\n", clientlen);
+    connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);  // repeatedly accepting a connection request // line:netp:tiny:accept
+    Getnameinfo((SA *)&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE, 0);
     printf("Accepted connection from (%s, %s)\n", hostname, port);
-    doit(connfd);   // line:netp:tiny:doit
+    doit(connfd);  // performing transaction  // line:netp:tiny:doit
     Close(connfd);  // line:netp:tiny:close
   }
+  printf("server closed");
+}
+
+
+void doit(int fd) {
+  int is_static;  // client의 요청이 static content인지 여부
+  struct stat sbuf;  // status of file을 저장하는 structure
+  char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
+  char filename[MAXLINE], cgiargs[MAXLINE];
+  rio_t rio;
+
+  printf("doit!!\n");
 }
