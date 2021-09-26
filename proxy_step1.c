@@ -22,7 +22,6 @@ static const char *host_key = "Host";
 
 
 /* 함수 형태 정의 */
-void *thread(void *vargp);
 void doit(int connfd);
 void parse_uri(char *uri, char *hostname, char *path, char *port);
 void build_http_header(char *http_header, char *hostname, char *path, rio_t *fromcli_rio);
@@ -35,7 +34,6 @@ int main(int argc, char **argv) {
   char hostname[MAXLINE], port[MAXLINE];
   socklen_t clientlen;
   struct sockaddr_storage clientaddr;
-  pthread_t tid;
 
   /* check command line args */
   if (argc != 2) {
@@ -50,20 +48,13 @@ int main(int argc, char **argv) {
     connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);  // repeatedly accepting a connection request
     Getnameinfo((SA *)&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE, 0);
     printf("Accepted connection from (%s, %s)\n", hostname, port);
-    Pthread_create(&tid, NULL, thread, (void *)connfd);
+    doit(connfd);  // performing transaction 
+    Close(connfd);
   }
 
   printf("%s", user_agent_hdr);
   printf("SERVER CLOSED");
   return 0;
-}
-
-
-void *thread(void *vargp) {
-  int connfd = (int)vargp;
-  Pthread_detach(pthread_self());
-  doit(connfd);  // performing transaction 
-  Close(connfd);
 }
 
 
