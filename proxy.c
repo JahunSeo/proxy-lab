@@ -31,7 +31,7 @@ void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longms
 
 /* main */
 int main(int argc, char **argv) {
-  int listenfd, connfd;
+  int listenfd, *connfdp;
   char hostname[MAXLINE], port[MAXLINE];
   socklen_t clientlen;
   struct sockaddr_storage clientaddr;
@@ -47,10 +47,14 @@ int main(int argc, char **argv) {
   while(1) {
     clientlen = sizeof(clientaddr);
     printf("\nwait for client's requests... (%d)\n", clientlen);
-    connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);  // repeatedly accepting a connection request
+    // in order to avoid the potehtially deadly race, 
+    // we must assign each connected descriptor returned by accept
+    // to its own dynamically allocated memory block.
+    connfdp = (int *)Malloc(sizeof(int)); // 중요! 교재 1027페이지 참고
+    *connfdp = Accept(listenfd, (SA *)&clientaddr, &clientlen);  // repeatedly accepting a connection request
     Getnameinfo((SA *)&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE, 0);
     printf("Accepted connection from (%s, %s)\n", hostname, port);
-    Pthread_create(&tid, NULL, thread, (void *)connfd);
+    Pthread_create(&tid, NULL, thread, connfdp);
   }
 
   printf("%s", user_agent_hdr);
@@ -60,10 +64,13 @@ int main(int argc, char **argv) {
 
 
 void *thread(void *vargp) {
-  int connfd = (int)vargp;
+  int connfd = *((int *)vargp);
   Pthread_detach(pthread_self());
+  // free the memory block that was allocated by the main thread
+  Free(vargp);
   doit(connfd);  // performing transaction 
   Close(connfd);
+  return NULL;
 }
 
 
