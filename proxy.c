@@ -24,7 +24,7 @@ static const char *host_key = "Host";
 /* 함수 형태 정의 */
 void doit(int connfd);
 void parse_uri(char *uri, char *hostname, char *path, int *port);
-void build_http_header(char *http_header, char *hostname, char *path, int port, rio_t *client_rio);
+void build_http_header(char *http_header, char *hostname, char *path, int port, rio_t *fromcli_rio);
 int connect_to_server(char *hostname, int port, char *http_header);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg);
 
@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
 void doit(int connfd) {
   printf("[doit] doit doit chu~~ (fd: %d)\n", connfd);
   // proxy 관점에서 최종서버가 되는 최종 목적지의 fd (여기는 proxy)
-  int serverfd; 
+  int tosvrfd; 
   // 클라이언트로 받은 요청의 정보
   char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
   char hostname[MAXLINE], path[MAXLINE];
@@ -71,10 +71,10 @@ void doit(int connfd) {
   // 서버로 보낼 request header
   char server_http_header[MAXLINE];
   // rio
-  rio_t proxy_rio, server_rio;
+  rio_t fromcli_rio, tosvr_rio;
   // 클라이언트에서 받은 request headers 확인
-  Rio_readinitb(&proxy_rio, connfd);  // connfd를 proxy_rio structure에 연결
-  Rio_readlineb(&proxy_rio, buf, MAXLINE);  // connfd에 담긴 클라이언트 요청의 첫 번째 라인을 buf에 저장
+  Rio_readinitb(&fromcli_rio, connfd);  // connfd를 fromcli_rio structure에 연결
+  Rio_readlineb(&fromcli_rio, buf, MAXLINE);  // connfd에 담긴 클라이언트 요청의 첫 번째 라인을 buf에 저장
   printf("Request headers: \n");
   printf("%s", buf);
   // 가령, GET http://www.cmu.edu/hub/index.html HTTP/1.1
@@ -87,14 +87,24 @@ void doit(int connfd) {
   // parse URI from GET request
   parse_uri(uri, hostname, path, &port);
   // 서버로 요청할 헤더 구성
-  build_http_header(server_http_header, hostname, path, port, &proxy_rio);
-  // 서버와 연결
-  serverfd = connect_to_server(hostname, port, server_http_header);
-  if (serverfd < 0) {
+  build_http_header(server_http_header, hostname, path, port, &fromcli_rio);
+  // 서버와 연결: 프록시가 다시 서버에 요청
+  tosvrfd = connect_to_server(hostname, port, server_http_header);
+  if (tosvrfd < 0) {
     clienterror(connfd, method, "404", "Not Found", "Proxy couldn't find the requested page");
     return;
   }
-
+  // 서버와 연결된 fd(socket)을 tosvr_rio에 연결
+  Rio_readinitb(&tosvr_rio, tosvrfd);
+  // 서버에 헤더 전달
+  Rio_writen(tosvrfd, server_http_header, strlen(server_http_header));
+  // 서버로부터 받은 데이터를 다시 클라이언트에 전달
+  size_t n;
+  while((n = Rio_readlineb(&tosvr_rio, buf, MAXLINE)) != 0) {
+    printf("server to proxy, then proxy to server: %d bytes\n", n);
+    Rio_writen(connfd, buf, n);
+  }
+  Close(tosvrfd);
 }
 
 
