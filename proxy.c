@@ -23,9 +23,8 @@ static const char *host_key = "Host";
 
 /* 함수 형태 정의 */
 void doit(int connfd);
-void parse_uri(char *uri, char *hostname, char *path, int *port);
-void build_http_header(char *http_header, char *hostname, char *path, int port, rio_t *fromcli_rio);
-int connect_to_server(char *hostname, int port, char *http_header);
+void parse_uri(char *uri, char *hostname, char *path, char *port);
+void build_http_header(char *http_header, char *hostname, char *path, rio_t *fromcli_rio);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg);
 
 
@@ -66,8 +65,7 @@ void doit(int connfd) {
   int tosvrfd; 
   // 클라이언트로 받은 요청의 정보
   char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
-  char hostname[MAXLINE], path[MAXLINE];
-  int port;
+  char hostname[MAXLINE], port[MAXLINE], path[MAXLINE];
   // 서버로 보낼 request header
   char server_http_header[MAXLINE];
   // rio
@@ -85,11 +83,11 @@ void doit(int connfd) {
     return;
   }
   // parse URI from GET request
-  parse_uri(uri, hostname, path, &port);
+  parse_uri(uri, hostname, path, port);
   // 서버로 요청할 헤더 구성
-  build_http_header(server_http_header, hostname, path, port, &fromcli_rio);
+  build_http_header(server_http_header, hostname, path, &fromcli_rio);
   // 서버와 연결: 프록시가 다시 서버에 요청
-  tosvrfd = connect_to_server(hostname, port, server_http_header);
+  tosvrfd = Open_clientfd(hostname, port);
   if (tosvrfd < 0) {
     clienterror(connfd, method, "404", "Not Found", "Proxy couldn't find the requested page");
     return;
@@ -108,37 +106,43 @@ void doit(int connfd) {
 }
 
 
-void parse_uri(char *uri, char *hostname, char *path, int *port) {
+void parse_uri(char *uri, char *hostname, char *path, char *port) {
+  // printf("[parse_uri] start\n");
   // uri가 http://www.cmu.edu/hub/index.html 와 같은 형태라고 기대됨
   char *pos_hostname = strstr(uri, "//");
   pos_hostname = pos_hostname != NULL ? pos_hostname+2 : uri;
   char *pos_port = strstr(pos_hostname, ":");
+  // port의 기본값을 80으로 설정
+  int portInt = 80;
+  sprintf(port, "%d", portInt);
   // port가 명시된 경우, 가령 www.naver.com:80/blah/blah
   // - port와 path 확보
   if (pos_port != NULL) {
     *pos_port = '\0';
     sscanf(pos_hostname, "%s", hostname);
-    sscanf(pos_port+1, "%d%s", port, path);
+    sscanf(pos_port+1, "%d%s", &portInt, path);
+    sprintf(port, "%d", portInt);
   } 
   // port가 명시되지 않은 경우
-  // - port를 80으로 설정 후 path 확보
+  // - port 부분 건너 뛰고 path 확보
   else {
-    *port = 80;
     pos_port = strstr(pos_hostname, "/");
     if (pos_port != NULL) {
       *pos_port = '\0';
       sscanf(pos_hostname, "%s", hostname);
       *pos_port = '/';
+      printf("%s,, %s", uri, pos_port);
       sscanf(pos_port, "%s", path);
     } else {
       sscanf(pos_hostname, "%s", hostname);
     }
   }
+  printf("[parse_uri] end: %s %s %s\n", hostname, path, port);
   return;
 }
 
 
-void build_http_header(char *http_header, char *hostname, char *path, int port, rio_t *fromcli_rio) {
+void build_http_header(char *http_header, char *hostname, char *path, rio_t *fromcli_rio) {
   char buf[MAXLINE], request_hdr[MAXLINE], host_hdr[MAXLINE], other_hdr[MAXLINE];
   // GET <path> HTTP/1.0
   sprintf(request_hdr, requestline_hdr_format, path);
