@@ -138,6 +138,47 @@ void parse_uri(char *uri, char *hostname, char *path, int *port) {
 }
 
 
+void build_http_header(char *http_header, char *hostname, char *path, int port, rio_t *fromcli_rio) {
+  char buf[MAXLINE], request_hdr[MAXLINE], host_hdr[MAXLINE], other_hdr[MAXLINE];
+  // GET <path> HTTP/1.0
+  sprintf(request_hdr, requestline_hdr_format, path);
+  // 클라이언트의 헤더에서 필요한 라인 추출하기
+  size_t n;
+  while((n = Rio_readlineb(fromcli_rio, buf, MAXLINE)) > 0) {
+    // 헤더가 끝난 경우m \r\n
+    if (strcmp(buf, endof_hdr) == 0) {
+      break;
+    }
+    // 헤더의 이름이 Host인 경우, Host: www.~~.com
+    if (!strncasecmp(buf, host_key, strlen(host_key))) {
+      strcpy(host_hdr, buf);
+      continue;
+    }
+    // connection, proxy connection, user-agent 제외한 나머지 헤더 누적 
+    if(!strncasecmp(buf,connection_key,strlen(connection_key))
+        &&!strncasecmp(buf,proxy_connection_key,strlen(proxy_connection_key))
+        &&!strncasecmp(buf,user_agent_key,strlen(user_agent_key)))
+    {
+        strcat(other_hdr,buf);
+    }
+  }
+  // 최종 구성
+  if (strlen(host_hdr) == 0) {
+    sprintf(host_hdr, host_hdr_format, hostname);
+  }
+  sprintf(http_header, "%s%s%s%s%s%s%s", 
+    request_hdr,
+    host_hdr,
+    conn_hdr,
+    prox_hdr,
+    user_agent_hdr,
+    other_hdr,
+    endof_hdr);
+  
+  return;
+}
+
+
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg) {
   printf("[clienterror] %s %s\n", cause, shortmsg);
   char buf[MAXLINE], body[MAXBUF];
